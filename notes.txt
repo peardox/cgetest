@@ -1,0 +1,24 @@
+The reverse of that operation (mapping point from 3D space to viewport 2D UI position) is to use TCastleViewport.PositionToXxx family of methods, in particular PositionToWorldPlane could be used to solve this ( https://castle-engine.io/apidoc/html/CastleViewport.TCastleViewport.html#PositionToWorldPlane-TVector2-Boolean-T3DAxis-Single-TVector3- ).
+
+That being said, using PositionToWorldPlane to position blocks in 3D in a row feels like too-elaborate-solution-to-simple-problem 🙂 
+
+Instead: Since this is a 2D grid of stuff, you just need to calculate XZ (knowing your camera effectively rotates the axes) from the grid position like I, J. You should be able to just use camera Up  and Direction:
+
+function BlockPos(const I, J: Integer): TVector3;
+const
+  VerticalDistance = 10;
+  HorizontalDistance = 10;
+var
+  CameraPos, CameraDir, CameraUp, CameraSide: TVector3;
+begin
+  Viewport.Camera.GetWorldView(CameraPos, CameraDir, CameraUp);
+  CameraSide := TVector3.CrossProduct(CameraUp, CameraDir);
+  Result := InitialBlockPosition +
+    CameraUp * J * VerticalDistance +
+    CameraSide * I * HorizontalDistance;
+end;
+
+---------------------
+https://github.com/mKenfenheuer/steam-deck-windows-usermode-driver
+https://github.com/ayufan/steam-deck-tools
+

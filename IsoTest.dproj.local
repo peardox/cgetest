@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2023/04/16 13:13:16.000.978,=C:\Users\simon\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>2023/04/16 13:13:56.000.293,C:\Users\simon\Documents\Embarcadero\Studio\Projects\Unit1.pas=C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\Unit1.pas</Transaction>
+    <Transaction>2023/04/16 13:13:56.000.293,C:\Users\simon\Documents\Embarcadero\Studio\Projects\Unit1.fmx=C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\Unit1.fmx</Transaction>
+    <Transaction>2023/04/16 13:14:15.000.109,C:\Users\simon\Documents\Embarcadero\Studio\Projects\Project1.dproj=C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\IsoTest.dproj</Transaction>
+    <Transaction>2023/04/17 13:08:33.000.159,=C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\Unit2.pas</Transaction>
+    <Transaction>2023/05/06 15:11:44.000.536,=C:\DelphiComponents\castle-engine\src\services\steam\castleinternalsteamapi.pas</Transaction>
+    <Transaction>2023/05/07 07:48:04.000.587,C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\Unit1.fmx=C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\FMXGui.fmx</Transaction>
+    <Transaction>2023/05/07 07:48:04.000.587,C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\Unit1.pas=C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\FMXGui.pas</Transaction>
+    <Transaction>2023/05/07 07:48:48.000.997,C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\Unit2.pas=C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\View3D.pas</Transaction>
+  </Transactions>
+</BorlandProject>

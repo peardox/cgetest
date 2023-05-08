@@ -1,0 +1,68 @@
+object CastleForm: TCastleForm
+  Left = 0
+  Top = 0
+  Caption = 'Form1'
+  ClientHeight = 443
+  ClientWidth = 712
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  OnCreate = FormCreate
+  OnResize = FormResize
+  DesignerMasterStyle = 0
+  object Panel1: TPanel
+    Position.X = 24.000000000000000000
+    Position.Y = 56.000000000000000000
+    Size.Width = 409.000000000000000000
+    Size.Height = 249.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 1
+    object Panel2: TPanel
+      Position.X = 16.000000000000000000
+      Position.Y = 16.000000000000000000
+      TabOrder = 0
+      object Memo1: TMemo
+        Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
+        DataDetectorTypes = []
+        Align = Client
+        Size.Width = 120.000000000000000000
+        Size.Height = 120.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 0
+        Viewport.Width = 116.000000000000000000
+        Viewport.Height = 116.000000000000000000
+      end
+    end
+    object Panel3: TPanel
+      Position.X = 176.000000000000000000
+      Position.Y = 40.000000000000000000
+      TabOrder = 1
+      object GLViewport: TCastleControl
+        Align = Client
+        Size.Width = 120.000000000000000000
+        Size.Height = 120.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 1
+      end
+    end
+  end
+  object TrackBar1: TTrackBar
+    Align = Bottom
+    CanParentFocus = True
+    Max = 10000.000000000000000000
+    Min = 1.000000000000000000
+    Orientation = Horizontal
+    Position.Y = 424.000000000000000000
+    Size.Width = 712.000000000000000000
+    Size.Height = 19.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 2
+    Value = 25.000000000000000000
+    OnChange = TrackBar1Change
+  end
+  object Timer1: TTimer
+    OnTimer = Timer1Timer
+    Left = 488
+    Top = 256
+  end
+end

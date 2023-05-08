@@ -1,0 +1,716 @@
+unit Unit2;
+{
+glTF defines +Y as up, +Z as forward, and +X as left; the front of a glTF asset faces +Z.
+}
+{$define USE_STEAM}
+// {$DEFINE DOROT}
+ {$define OrthoCam}
+interface
+
+uses
+  System.SysUtils, System.Types, System.UITypes, System.Classes, System.Variants,
+  Math, FMX.Controls,
+  CastleControls, CastleColors, CastleUIControls,
+  CastleShapes, CastleVectors, CastleBoxes,
+  CastleSceneCore, CastleScene, CastleTransform,
+  CastleViewport, CastleCameras, CastleProjection,
+  X3DNodes, X3DFields,
+{$ifdef USE_STEAM}
+  CastleSteam,
+{$endif}
+  CastleImages, CastleGLImages, CastleQuaternions,
+  CastleTextureImages, CastleGLUtils,
+  CastleApplicationProperties, CastleLog, CastleTimeUtils, CastleKeysMouse;
+
+type
+  { TExtents }
+  TExtents = record
+    isValid: Boolean;
+    corners: TBoxCorners;
+    Min: TVector3;
+    Max: TVector3;
+    Size: TVector3;
+    Pixels: TVector2;
+    Aspect: Single;
+  end;
+
+  { TCastleModel }
+  TCastleModel = class(TCastleScene)
+    constructor Create(AOwner: TComponent); override;
+  private
+    fScale: Single;
+    fOrientation: TVector4;
+    fRotation: TVector4;
+  protected
+    function Normalize: Boolean;
+    procedure ReOrient(X, Y, Z: Integer); overload;
+    procedure ReOrient(X, Y, Z: Single); overload;
+    procedure SetCombiRotation(const Value: TVector4);
+  public
+    Frame: Integer;
+    property NormalScale: Single read fScale write fScale;
+    property Orientation: TVector4 read fOrientation write fOrientation;
+    property CombiRotation: TVector4 read fRotation write SetCombiRotation;
+  end;
+
+
+  { TCastleViewHelper }
+  TCastleViewportHelper = class helper for TCastleViewport
+  public
+    function CalcAngles(const AScene: TCastleModel): TExtents;
+    function WorldToViewport(AModel: TCastleModel; AVec: TVector2): TVector2; overload;
+    function WorldToViewport(AModel: TCastleModel; AVec: TVector3): TVector2; overload;
+  end;
+
+  { TCastleViewHelper }
+  TCastleViewHelper = class helper for TCastleView
+  public
+    procedure CreateButton(var objButton: TCastleButton; const ButtonText: String; const Line: Integer; const ButtonCode: TNotifyEvent = nil; const BottomUp: Boolean = True);
+    procedure CreateLabel(var objLabel: TCastleLabel; const Line: Integer; const BottomUp: Boolean = True; RightAlign: Boolean = False);
+  end;
+
+  { TCastleApp }
+
+  TCastleApp = class(TCastleView)
+    procedure BeforeRender; override; // TCastleUserInterface
+    procedure Render; override; // TCastleUserInterface
+    procedure Resize; override; // TCastleUserInterface
+    procedure RenderOverChildren;override; // TCastleUserInterface
+    procedure Update(const SecondsPassed: Single; var HandleInput: boolean); override; // TCastleView
+    function  Motion(const Event: TInputMotion): Boolean; override; // TCastleView
+    function  Press(const Event: TInputPressRelease): Boolean; override; // TCastleView
+    function  Release(const Event: TInputPressRelease): Boolean; override; // TCastleView
+  private
+    Viewport: TCastleViewport;
+    Camera: TCastleCamera;
+    CameraLight: TCastleDirectionalLight;
+    VPBackImage: TCastleImageControl;
+    ActiveScene: TCastleModel;
+    LabelCam: TCastleLabel;
+    LabelFPS: TCastleLabel;
+    LabelRender: TCastleLabel;
+    ILogger: TStrings;
+    ILogControl: TControl;
+    IsNormalized: Boolean;
+    rot: Single;
+{$ifdef USE_STEAM}
+    SteamAchievementsReceived: Boolean;
+    procedure FillInAchievements;
+{$endif}
+  public
+    CamDist: Extended;
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
+    procedure BootStrap;
+    procedure Synch;
+    procedure Start; override; // TCastleView
+    procedure Stop; override; // TCastleView
+    procedure LoadViewport;
+    function  CreateDirectionalLight(LightPos: TVector3): TCastleDirectionalLight;
+    procedure PositionDirectionalLight(Light: TCastleDirectionalLight; LightPos: TVector3);
+    procedure LoadScene(filename: String);
+    function  ViewFromRadius(const ARadius: Single; const ADirection: TVector3): TVector3;
+    procedure DrawAxis;
+    procedure UpdateView;
+    procedure SetGUILogger(const ALogger: TStrings);
+    procedure SetGUILogControl(const AControl: TControl);
+  end;
+
+
+var
+  PrepDone: Boolean;
+  RenderReady: Boolean;
+  CastleApp: TCastleApp;
+  DbgSingle: Single;
+
+const
+  Data_Path = '../../data';
+  Pack_Path = 'C:\\Assets\\Kenney Game Assets All-in-1 1.6.0\\3D assets\\Retro Medieval Kit\\Models\\GLTF format';
+  Pi2 = (Pi * 2);
+
+function WrapRot(const AValue: Single): Single;
+
+implementation
+
+uses FMX.Memo, FMX.Dialogs, CastleRectangles;
+
+function WrapRot(const AValue: Single): Single;
+begin
+  Result := AValue;
+  while(Result > Pi) do
+    begin
+      Result := Result - Pi2;
+    end;
+  while(Result < -Pi) do
+    begin
+      Result := Result + Pi2;
+    end;
+end;
+
+constructor TCastleApp.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+end;
+
+destructor TCastleApp.Destroy;
+begin
+  inherited;
+end;
+
+{ TCastleModel }
+
+constructor TCastleModel.Create(AOwner: TComponent);
+begin
+  inherited;
+  fScale := 0.5;
+end;
+
+procedure TCastleModel.SetCombiRotation(const Value: TVector4);
+var
+  Q: TQuaternion;
+begin
+  fRotation := Value;
+  Q := QuatFromAxisAngle(fOrientation, True);
+  Q := Q * QuatFromAxisAngle(fRotation);
+  Rotation := Q.ToAxisAngle;
+end;
+
+{ ReOrient }
+procedure TCastleModel.ReOrient(X, Y, Z: Integer);
+const
+  Deg90: Extended = (Pi / 2);
+var
+  Q: TQuaternion;
+begin
+  Q := QuatFromAxisAngle(Vector4(0, 1, 0, 0), True);
+  if X <> 0 then
+    Q := Q * QuatFromAxisAngle(Vector4(1, 0, 0, X * Deg90));
+  if Y <> 0 then
+    Q := Q * QuatFromAxisAngle(Vector4(0, 1, 0, Y * Deg90));
+  if Z <> 0 then
+    Q := Q * QuatFromAxisAngle(Vector4(0, 0, 1, Z * Deg90));
+  Orientation := Q.ToAxisAngle;
+end;
+
+procedure TCastleModel.ReOrient(X, Y, Z: Single);
+var
+  Q: TQuaternion;
+begin
+  Q := QuatFromAxisAngle(Vector4(0, 1, 0, 0), True);
+  if X <> 0 then
+    Q := Q * QuatFromAxisAngle(Vector4(1, 0, 0, X));
+  if Y <> 0 then
+    Q := Q * QuatFromAxisAngle(Vector4(0, 1, 0, Y));
+  if Z <> 0 then
+    Q := Q * QuatFromAxisAngle(Vector4(0, 0, 1, Z));
+  Orientation := Q.ToAxisAngle;
+end;
+
+{ Normalize - Center the model in a 1x1x1 cube }
+function TCastleModel.Normalize: Boolean;
+var
+  BBMax: Single;
+begin
+  Result := False;
+  if not(RootNode = nil) then
+    begin
+    if not LocalBoundingBox.IsEmptyOrZero then
+      begin
+        if LocalBoundingBox.MaxSize > 0 then
+          begin
+            Center := Vector3(Min(LocalBoundingBox.Data[0].X, LocalBoundingBox.Data[1].X) + (LocalBoundingBox.SizeX / 2),
+                              Min(LocalBoundingBox.Data[0].Y, LocalBoundingBox.Data[1].Y) + (LocalBoundingBox.SizeY / 2),
+                              Min(LocalBoundingBox.Data[0].Z, LocalBoundingBox.Data[1].Z) + (LocalBoundingBox.SizeZ / 2));
+            Translation := -Center;
+            DbgSingle := LocalBoundingBox.MaxSize;
+            BBMax := LocalBoundingBox.MaxSize;
+            Scale := Vector3(NormalScale / BBMax,
+                             NormalScale / BBMax,
+                             NormalScale / BBMax);
+            Result := True;
+          end;
+      end;
+    end;
+end;
+
+{ TCastleApp }
+
+function TCastleApp.CreateDirectionalLight(LightPos: TVector3): TCastleDirectionalLight;
+var
+  Light: TCastleDirectionalLight;
+begin
+  Light := TCastleDirectionalLight.Create(Self);
+
+  Light.Direction := LightPos;
+  Light.Color := Vector3(1, 1, 1);
+  Light.Intensity := 1;
+
+  Result := Light;
+end;
+
+procedure TCastleApp.PositionDirectionalLight(Light: TCastleDirectionalLight; LightPos: TVector3);
+begin
+  Light.Direction := LightPos;
+end;
+
+procedure TCastleApp.SetGUILogControl(const AControl: TControl);
+begin
+  ILogControl := AControl;
+end;
+
+procedure TCastleApp.SetGUILogger(const ALogger: TStrings);
+begin
+  ILogger := ALogger;
+end;
+
+procedure TCastleApp.BootStrap;
+begin
+  DbgSingle := 0;
+//  LoadScene(Data_Path + '/bear.glb');
+//  LoadScene(Data_Path + '/up.glb');
+//  LoadScene(Data_Path + '/camera.glb');
+//  LoadScene(Data_Path + '/refplane31.glb');
+//  LoadScene(Data_Path + '/refplane31-up.glb');
+//  LoadScene(Data_Path + '/spider.gltf');
+//  LoadScene(Data_Path + '/flagCheckers.gltf');
+//  LoadScene(Data_Path + '/caveman/scene.gltf');
+//  LoadScene(Data_Path + '/cr01.gltf');
+//  LoadScene(Data_Path + '/CrazyRabbit.glb');
+//  LoadScene(Data_Path + '/coyote/scene.gltf');
+//  LoadScene(Data_Path + '/boy_character.glb');
+  LoadScene(Pack_Path + '/wall_gate.glb');
+  Resize;
+end;
+
+function TCastleApp.ViewFromRadius(const ARadius: Single; const ADirection: TVector3): TVector3;
+var
+  Spherical: TVector3;
+begin
+  Spherical := ADirection.Normalize;
+  Spherical := Spherical * ARadius;
+  Camera.Up := Vector3(0, 1, 0);
+  Camera.Direction := -ADirection;
+  Camera.Translation  := Spherical;
+
+  Result := Camera.Translation;
+end;
+
+procedure TCastleApp.LoadViewport;
+begin
+  VPBackImage := TCastleImageControl.Create(Owner);
+  VPBackImage.OwnsImage := True;
+  InsertFront(VPBackImage);
+
+  CamDist := 25;
+
+  Viewport := TCastleViewport.Create(Owner);
+  Viewport.FullSize := False;
+  Viewport.Width := Container.Width;
+  Viewport.Height := Container.Height;
+  Viewport.Transparent := True;
+
+  Camera := TCastleCamera.Create(Owner);
+  {$IFDEF OrthoCam}
+  Viewport.Setup2D;
+  Camera.ProjectionType := ptOrthographic;
+  Camera.Orthographic.Width := 1;
+  Camera.Orthographic.Height := 1;
+  Camera.Orthographic.Origin := Vector2(0.5, 0.5);
+  {$ELSE}
+  Camera.ProjectionType := ptPerspective;
+//  Camera.Perspective.FieldOfView := 2 * ArcTan(1 / CamDist);
+  Camera.ProjectionNear := 0.01;
+  Camera.ProjectionFar := ZFarInfinity;
+  {$ENDIF}
+
+  CameraLight := CreateDirectionalLight(Viewport.Camera.Translation);
+  Camera.Add(CameraLight);
+
+  Viewport.Items.Add(Camera);
+  Viewport.Camera := Camera;
+
+  InsertFront(Viewport);
+
+  CreateLabel(LabelCam, 2);
+  CreateLabel(LabelFPS, 1);
+  CreateLabel(LabelRender, 0);
+
+end;
+
+procedure TCastleApp.LoadScene(filename: String);
+var
+  AScene: TCastleModel;
+begin
+  try
+    AScene := TCastleModel.Create(Self);
+//    AScene.PreciseCollisions := False;
+    AScene.Load(filename);
+//  IsNormalized := ActiveScene.Normalize;
+    ActiveScene := AScene;
+//    ActiveScene.Rotation := Vector4(0, 1, 0, Pi / 8);
+
+//   ActiveScene.ReOrient(1, 0, 0);
+
+    Viewport.PrepareResources(ActiveScene);
+    Viewport.Items.Add(ActiveScene);
+  except
+    on E : Exception do
+      begin
+        ShowMessage('Oops #1' + E.ClassName + ' - ' + E.Message);
+       end;
+  end;
+end;
+
+procedure TCastleApp.Start;
+begin
+  inherited;
+  LogTextureCache := True;
+  ActiveScene := nil;
+  LoadViewport;
+  PrepDone := True;
+end;
+
+procedure TCastleApp.Stop;
+begin
+  inherited;
+end;
+
+procedure TCastleApp.BeforeRender;
+begin
+  inherited;
+  if(Assigned(ActiveScene)) then
+    begin
+      Inc(ActiveScene.Frame);
+      {$IFDEF USELAELS}
+      LabelCam.Caption := 'Cam = (' + FormatFloat('####0.00', Camera.Translation.X) +
+                          ', ' +
+                          FormatFloat('####0.00', Camera.Translation.Y) +
+                          ', ' +
+                          FormatFloat('####0.00', Camera.Translation.Z) +
+                          ')';
+      {$ENDIF}
+    {$IFDEF DOROT}
+      rot := WrapRot(ActiveScene.Rotation.W + (Pi / 180));
+      ActiveScene.Rotation := Vector4(0, 1, 0, rot);
+      Synch;
+    {$ELSE}
+      ActiveScene.Rotation := Vector4(0, 1, 0, PI/2);
+    {$ENDIF}
+    end;
+  {$IFDEF USELAELS}
+  LabelFPS.Caption := 'FPS = ' + FormatFloat('####0.00', Container.Fps.RealFps);
+  {$IFDEF OrthoCam}
+  LabelRender.Caption := 'Render = ' + FormatFloat('####0.00', Container.Fps.OnlyRenderFps);
+  {$ELSE}
+  LabelRender.Caption := 'FOV = ' + FormatFloat('####0.00000', Camera.Perspective.FieldOfView);
+  {$ENDIF}
+  {$ENDIF}
+end;
+
+procedure TCastleApp.RenderOverChildren;
+begin
+  inherited;
+  DrawAxis;
+end;
+
+procedure TCastleApp.Render;
+begin
+  inherited;
+
+  if PrepDone and GLInitialized and RenderReady then
+    begin
+      PrepDone := False;
+      BootStrap;
+    end;
+  RenderReady := True;
+end;
+
+procedure TCastleApp.Synch;
+begin
+  if Assigned(ILogControl) then
+    ILogControl.BeginUpdate;
+  UpdateView;
+  if Assigned(ILogControl) then
+    ILogControl.EndUpdate;
+end;
+
+procedure TCastleApp.Resize;
+begin
+  UpdateView;
+end;
+
+procedure TCastleApp.UpdateView;
+var
+  CamPos: TVector3;
+begin
+  inherited;
+  Viewport.Width := Container.Width;
+  Viewport.Height := Container.Height;
+  {$IFDEF OrthoCam}
+  Camera.Orthographic.Width := 1;
+  Camera.Orthographic.Height := 1;
+  Camera.Orthographic.Origin := Vector2(0.5, 0.5);
+  ViewFromRadius(1, Vector3( 1, 1, 1));
+  {$ELSE}
+  {
+  Camera.Perspective.FieldOfView := 2 * ArcTan(0.5 / CamDist);
+  Camera.Up := Vector3(0, 1, 0);
+  Camera.Direction := Vector3(0, 0, -1);
+  Camera.Translation  := Vector3(0, 0, CamDist);
+  PositionDirectionalLight(CameraLight, Camera.Translation);
+ }
+  CamPos :=  ViewFromRadius(CamDist, Vector3( 1, 1, 1));
+//  CamDist := Sqrt( (CamPos.X * CamPos.X) + (CamPos.Y * CamPos.Y) + (CamPos.Z * CamPos.Z));
+  Camera.Perspective.FieldOfView := ArcTan(0.5 / CamDist);
+  PositionDirectionalLight(CameraLight, CamPos);
+
+  {$ENDIF}
+end;
+
+{$ifdef USE_STEAM}
+procedure TCastleApp.FillInAchievements;
+var
+  S: String;
+begin
+    if (Assigned(ILogControl) and not SteamAchievementsReceived) then
+      begin
+        for S in Steam.Achievements do
+        begin
+          if Steam.GetAchievement(S) then
+            TMemo(ILogControl).Lines.Add('A : ' + S + ' : Yes')
+          else
+            TMemo(ILogControl).Lines.Add('A : ' + S + ' : No');
+        end;
+      end;
+
+  SteamAchievementsReceived := true;
+end;
+{$endif}
+
+procedure TCastleApp.Update(const SecondsPassed: Single; var HandleInput: boolean);
+begin
+  inherited;
+{$ifdef USE_STEAM}
+  Steam.Update;
+  if not SteamAchievementsReceived and Steam.Initialized then
+  begin
+    FillInAchievements;
+  end;
+  {$endif}
+
+end;
+
+function TCastleViewportHelper.WorldToViewport(AModel: TCastleModel; AVec: TVector2): TVector2;
+begin
+  if(Camera.ProjectionType = ptOrthographic) then
+    Result := Vector2(
+      Container.Width  * ((AVec.X * AModel.NormalScale) + Camera.Orthographic.Origin.X),
+      Container.Height * ((AVec.Y * AModel.NormalScale) + Camera.Orthographic.Origin.Y)
+    )
+  else
+    Result := Vector2(
+      Container.Width  * ((AVec.X * AModel.NormalScale) + 0.5),
+      Container.Height * ((AVec.Y * AModel.NormalScale) + 0.5)
+    )
+
+end;
+
+function TCastleViewportHelper.WorldToViewport(AModel: TCastleModel; AVec: TVector3): TVector2;
+begin
+  if(Camera.ProjectionType = ptOrthographic) then
+    Result := Vector2(
+      Container.Width  * ((AVec.X * AModel.NormalScale) + Camera.Orthographic.Origin.X),
+      Container.Height * ((AVec.Y * AModel.NormalScale) + Camera.Orthographic.Origin.Y)
+    )
+  else
+    Result := Vector2(
+      Container.Width  * ((AVec.X * AModel.NormalScale) + 0.5),
+      Container.Height * ((AVec.Y * AModel.NormalScale) + 0.5)
+    )
+end;
+
+procedure TCastleApp.DrawAxis;
+var
+  Points: array[0..3] of TVector2;
+  GroundRect: array[0..3] of TVector2;
+  BoundingRect: TFloatRectangle;
+  TR, BL: TVector2;
+  SX, SY: Single;
+  Extents: TExtents;
+begin
+  Points[0] := Vector2(0, Container.UnscaledHeight / 2);
+  Points[1] := Vector2(Container.UnscaledWidth, Container.UnscaledHeight / 2);
+  Points[2] := Vector2(Container.UnscaledWidth / 2, 0);
+  Points[3] := Vector2(Container.UnscaledWidth / 2, Container.UnscaledHeight);
+ // DrawPrimitive2D(pmLines, Points, Red);
+
+  if Assigned(ActiveScene) then
+    begin
+    IsNormalized := ActiveScene.Normalize;
+
+    if  (Assigned(Ilogger) and (IsNormalized)) then
+      begin
+
+        Extents := Viewport.CalcAngles(ActiveScene);
+        if Extents.isValid then
+          begin
+            BL := Viewport.WorldToViewport(ActiveScene, Extents.Min);
+            TR := Viewport.WorldToViewport(ActiveScene, Extents.Max);
+            SX := TR.X - BL.X;
+            SY := TR.Y - BL.Y;
+            {
+            ILogger.Text := 'Frame  : ' + IntToStr(ActiveScene.Frame) + sLineBreak +
+                            'Scale  : ' + FormatFloat('##0.000000', ActiveScene.Scale.X) + sLineBreak +
+                            'MinX   : ' + FormatFloat('##0.000000', Extents.Min.X) + sLineBreak +
+                            'MinY   : ' + FormatFloat('##0.000000', Extents.Min.Y) + sLineBreak +
+                            'MaxX   : ' + FormatFloat('##0.000000', Extents.Max.X) + sLineBreak +
+                            'MaxY   : ' + FormatFloat('##0.000000', Extents.Max.Y) + sLineBreak +
+                            'SizeX  : ' + FormatFloat('##0.000000', Extents.Size.X) + sLineBreak +
+                            'SizeY  : ' + FormatFloat('##0.000000', Extents.Size.Y) + sLineBreak +
+                            'PixX   : ' + FormatFloat('##0.000000', Extents.Pixels.X) + sLineBreak +
+                            'PixY   : ' + FormatFloat('##0.000000', Extents.Pixels.Y) + sLineBreak +
+                            'Aspect : ' + FormatFloat('##0.000000', Extents.Aspect) + sLineBreak +
+                            'C0X    : ' + FormatFloat('##0.000000', Extents.corners[0].X) + sLineBreak +
+                            'C0Y    : ' + FormatFloat('##0.000000', Extents.corners[0].Y) + sLineBreak +
+                            'C0Z    : ' + FormatFloat('##0.000000', Extents.corners[0].Z) + sLineBreak +
+                            'C1X    : ' + FormatFloat('##0.000000', Extents.corners[1].X) + sLineBreak +
+                            'C1Y    : ' + FormatFloat('##0.000000', Extents.corners[1].Y) + sLineBreak +
+                            'C1Z    : ' + FormatFloat('##0.000000', Extents.corners[1].Z) + sLineBreak +
+                            'C2X    : ' + FormatFloat('##0.000000', Extents.corners[2].X) + sLineBreak +
+                            'C2Y    : ' + FormatFloat('##0.000000', Extents.corners[2].Y) + sLineBreak +
+                            'C2Z    : ' + FormatFloat('##0.000000', Extents.corners[2].Z) + sLineBreak +
+                            'C3X    : ' + FormatFloat('##0.000000', Extents.corners[3].X) + sLineBreak +
+                            'C3Y    : ' + FormatFloat('##0.000000', Extents.corners[3].Y) + sLineBreak +
+                            'C3Z    : ' + FormatFloat('##0.000000', Extents.corners[3].Z) + sLineBreak +
+                            'C4X    : ' + FormatFloat('##0.000000', Extents.corners[4].X) + sLineBreak +
+                            'C4Y    : ' + FormatFloat('##0.000000', Extents.corners[4].Y) + sLineBreak +
+                            'C4Z    : ' + FormatFloat('##0.000000', Extents.corners[4].Z) + sLineBreak +
+                            'C5X    : ' + FormatFloat('##0.000000', Extents.corners[5].X) + sLineBreak +
+                            'C5Y    : ' + FormatFloat('##0.000000', Extents.corners[5].Y) + sLineBreak +
+                            'C5Z    : ' + FormatFloat('##0.000000', Extents.corners[5].Z) + sLineBreak +
+                            'C6X    : ' + FormatFloat('##0.000000', Extents.corners[6].X) + sLineBreak +
+                            'C6Y    : ' + FormatFloat('##0.000000', Extents.corners[6].Y) + sLineBreak +
+                            'C6Z    : ' + FormatFloat('##0.000000', Extents.corners[6].Z) + sLineBreak +
+                            'C7X    : ' + FormatFloat('##0.000000', Extents.corners[7].X) + sLineBreak +
+                            'C7Y    : ' + FormatFloat('##0.000000', Extents.corners[7].Y) + sLineBreak +
+                            'C7Z    : ' + FormatFloat('##0.000000', Extents.corners[7].Z) + sLineBreak +
+
+                            'Width   : ' + FormatFloat('##0.000000', Camera.Orthographic.Width) + sLineBreak +
+                            'EWidth  : ' + FormatFloat('##0.000000', Camera.Orthographic.EffectiveRect.Width) + sLineBreak +
+                            'Height  : ' + FormatFloat('##0.000000', Camera.Orthographic.Height) + sLineBreak +
+                            'EHeight : ' + FormatFloat('##0.000000', Camera.Orthographic.EffectiveRect.Height) + sLineBreak +
+
+                            'BRect   : (' + FormatFloat('##0', BL.X) + ', ' + FormatFloat('##0', BL.Y) + ')' + sLineBreak +
+                            'Size    : (' + FormatFloat('##0', SX) + ', ' + FormatFloat('##0', SY) + ')'
+                            ;
+                            }
+//                        BoundingRect := FloatRectangle(BL, SX, SY);
+//                        DrawRectangleOutline(BoundingRect, Yellow);
+
+                        GroundRect[0] := Viewport.WorldToViewport(ActiveScene, Extents.corners[0]);
+                        GroundRect[1] := Viewport.WorldToViewport(ActiveScene, Extents.corners[1]);
+                        GroundRect[2] := Viewport.WorldToViewport(ActiveScene, Extents.corners[5]);
+                        GroundRect[3] := Viewport.WorldToViewport(ActiveScene, Extents.corners[4]);
+                        DrawPrimitive2D(pmLineLoop, GroundRect, Green);
+          end;
+      end;
+    end;
+end;
+
+function TCastleApp.Motion(const Event: TInputMotion): Boolean;
+begin
+  Result := inherited;
+end;
+
+function TCastleApp.Press(const Event: TInputPressRelease): Boolean;
+begin
+  Result := inherited;
+end;
+
+function TCastleApp.Release(const Event: TInputPressRelease): Boolean;
+begin
+  Result := inherited;
+end;
+
+procedure TCastleViewHelper.CreateButton(var objButton: TCastleButton; const ButtonText: String; const Line: Integer; const ButtonCode: TNotifyEvent = nil; const BottomUp: Boolean = True);
+begin
+  objButton := TCastleButton.Create(Self);
+  objButton.Caption := ButtonText;
+  objButton.Anchor(hpMiddle, 10);
+  if BottomUp then
+    objButton.Anchor(vpBottom, 10 + (Line * 35))
+  else
+    objButton.Anchor(vpTop, -(10 + (Line * 35)));
+  objButton.onClick := ButtonCode;
+  InsertFront(objButton);
+end;
+
+procedure TCastleViewHelper.CreateLabel(var objLabel: TCastleLabel; const Line: Integer; const BottomUp: Boolean = True; RightAlign: Boolean = False);
+begin
+  objLabel := TCastleLabel.Create(Self);
+  objLabel.Padding := 5;
+  objLabel.Color := White;
+  objLabel.Anchor(hpLeft, 10);
+  if RightAlign then
+    objLabel.Anchor(hpRight, -10)
+  else
+    objLabel.Anchor(hpLeft, 10);
+  if BottomUp then
+    objLabel.Anchor(vpBottom, 10 + (Line * 35))
+  else
+    objLabel.Anchor(vpTop, -(10 + (Line * 35)));
+  InsertFront(objLabel);
+end;
+
+function TCastleViewportHelper.CalcAngles(const AScene: TCastleModel): TExtents;
+var
+  OutputMatrix:TMatrix4;
+  OutputPoint3D: TVector3;
+  i: Integer;
+  Extents: TExtents;
+begin
+  Extents.isValid := False;
+  Extents.Min := Vector3(Infinity, Infinity, Infinity);
+  Extents.Max := Vector3(-Infinity, -Infinity, -Infinity);
+  Extents.Pixels.X := EffectiveWidth;
+  Extents.Pixels.Y := EffectiveHeight;
+
+  if ((EffectiveWidth > 0) and (EffectiveHeight > 0) and Assigned(AScene) and not AScene.BoundingBox.IsEmptyOrZero) then
+	begin
+	  AScene.LocalBoundingBox.Corners(Extents.corners);
+    OutputMatrix := Camera.ProjectionMatrix * Camera.Matrix * AScene.WorldTransform;
+	  for i := Low(Extents.corners) to High(Extents.corners) do
+		begin
+		  OutputPoint3D := OutputMatrix.MultPoint(Extents.corners[i]);
+		  if OutputPoint3D.X < Extents.Min.X then
+		  	Extents.Min.X := OutputPoint3D.X;
+		  if OutputPoint3D.Y < Extents.Min.Y then
+	  		Extents.Min.Y := OutputPoint3D.Y;
+		  if OutputPoint3D.Z < Extents.Min.Z then
+	  		Extents.Min.Z := OutputPoint3D.Z;
+		  if OutputPoint3D.X > Extents.Max.X then
+  			Extents.Max.X := OutputPoint3D.X;
+		  if OutputPoint3D.Y > Extents.Max.Y then
+			  Extents.Max.Y := OutputPoint3D.Y;
+		  if OutputPoint3D.Z > Extents.Max.Z then
+			  Extents.Max.Z := OutputPoint3D.Z;
+      Extents.corners[i] := Vector3(OutputPoint3D.X, OutputPoint3D.Y, OutputPoint3D.Z);
+		end;
+
+    Extents.Aspect := EffectiveWidth / EffectiveHeight;
+
+	  Extents.Size.X := (Extents.Max.X - Extents.Min.X);
+	  Extents.Size.Y := (Extents.Max.Y - Extents.Min.Y);
+	  Extents.Size.Z := (Extents.Max.Z - Extents.Min.Z);
+	  Extents.Aspect := Extents.Size.X / Extents.Size.Y;
+
+    Extents.isValid := True;
+
+	end;
+
+  Result := Extents;
+end;
+
+
+
+end.
