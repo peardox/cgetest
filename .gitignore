@@ -40,7 +40,8 @@ Linux64/
 OSX/
 Win32/
 Win64/
-
+__history/
+__recovery/
 # Application bundle for Mac OS
 *.app/
 
