@@ -278,7 +278,11 @@
             <FormType>fmx</FormType>
         </DCCReference>
         <DCCReference Include="View3D.pas"/>
-        <DCCReference Include="C:\DelphiComponents\castle-engine\src\services\steam\castleinternalsteamapi.pas"/>
+        <DCCReference Include="C:\DelphiComponents\steam\CastleInternalSteamApi.pas"/>
+        <DCCReference Include="C:\DelphiComponents\steam\castleinternalsteamcallback.pas"/>
+        <DCCReference Include="C:\DelphiComponents\steam\castleinternalsteamconstantsandtypes.pas"/>
+        <DCCReference Include="C:\DelphiComponents\steam\castlesteam.pas"/>
+        <None Include="C:\DelphiComponents\steam\castleconf.inc"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -316,6 +320,12 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
+                <DeployFile LocalName="C:\DelphiComponents\steam\castleconf.inc" Configuration="Debug" Class="ProjectFile">
+                    <Platform Name="Win32">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="Win32\Debug\IsoTest.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>IsoTest.exe</RemoteName>
@@ -325,12 +335,6 @@
                 <DeployFile LocalName="Win64\Debug\IsoTest.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win64">
                         <RemoteName>IsoTest.exe</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName="Win64\Debug\IsoTest.rsm" Configuration="Debug" Class="DebugSymbols">
-                    <Platform Name="Win64">
-                        <RemoteName>IsoTest.rsm</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

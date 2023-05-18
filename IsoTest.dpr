@@ -5,7 +5,10 @@ uses
   FMX.Forms,
   FMXGui in 'FMXGui.pas' {CastleForm},
   View3D in 'View3D.pas',
-  castleinternalsteamapi in 'C:\DelphiComponents\castle-engine\src\services\steam\castleinternalsteamapi.pas';
+  CastleInternalSteamApi in 'C:\DelphiComponents\steam\CastleInternalSteamApi.pas',
+  castleinternalsteamcallback in 'C:\DelphiComponents\steam\castleinternalsteamcallback.pas',
+  castleinternalsteamconstantsandtypes in 'C:\DelphiComponents\steam\castleinternalsteamconstantsandtypes.pas',
+  castlesteam in 'C:\DelphiComponents\steam\castlesteam.pas';
 
 {$R *.res}
 

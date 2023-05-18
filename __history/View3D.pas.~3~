@@ -285,7 +285,7 @@ procedure TCastleApp.BootStrap;
 begin
   DbgSingle := 0;
 //  LoadScene(Data_Path + '/bear.glb');
-  LoadScene(Data_Path + '/up.glb');
+//  LoadScene(Data_Path + '/up.glb');
 //  LoadScene(Data_Path + '/camera.glb');
 //  LoadScene(Data_Path + '/refplane31.glb');
 //  LoadScene(Data_Path + '/refplane31-up.glb');
@@ -296,7 +296,7 @@ begin
 //  LoadScene(Data_Path + '/CrazyRabbit.glb');
 //  LoadScene(Data_Path + '/coyote/scene.gltf');
 //  LoadScene(Data_Path + '/boy_character.glb');
-//  LoadScene(Pack_Path + '/wall_gate.glb');
+  LoadScene(Pack_Path + '/wall_gate.glb');
   Resize;
 end;
 

@@ -10,5 +10,10 @@
     <Transaction>2023/05/07 07:48:04.000.587,C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\Unit1.fmx=C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\FMXGui.fmx</Transaction>
     <Transaction>2023/05/07 07:48:04.000.587,C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\Unit1.pas=C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\FMXGui.pas</Transaction>
     <Transaction>2023/05/07 07:48:48.000.997,C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\Unit2.pas=C:\Users\simon\Documents\Embarcadero\Studio\Projects\IsoTest\View3D.pas</Transaction>
+    <Transaction>2023/05/16 07:18:13.000.801,=C:\DelphiComponents\steam\castleinternalsteamconstantsandtypes.pas</Transaction>
+    <Transaction>2023/05/16 07:18:13.000.700,=C:\DelphiComponents\steam\castleconf.inc</Transaction>
+    <Transaction>2023/05/16 07:18:13.000.729,=C:\DelphiComponents\steam\CastleInternalSteamApi.pas</Transaction>
+    <Transaction>2023/05/16 07:18:13.000.763,=C:\DelphiComponents\steam\castleinternalsteamcallback.pas</Transaction>
+    <Transaction>2023/05/16 07:18:13.000.836,=C:\DelphiComponents\steam\castlesteam.pas</Transaction>
   </Transactions>
 </BorlandProject>

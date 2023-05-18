@@ -172,7 +172,6 @@ begin
   inherited;
 end;
 
-{$ifdef USE_STEAM}
 procedure TCastleApp.GotStats(Sender: TObject);
 begin
   GUILog('Got Stats');
@@ -183,7 +182,6 @@ begin
   if Assigned(FLogStringEvent) then
     FLogStringEvent(Self, AString);
 end;
-{$endif}
 
 { TCastleModel }
 
@@ -285,7 +283,7 @@ procedure TCastleApp.BootStrap;
 begin
   DbgSingle := 0;
 //  LoadScene(Data_Path + '/bear.glb');
-  LoadScene(Data_Path + '/up.glb');
+//  LoadScene(Data_Path + '/up.glb');
 //  LoadScene(Data_Path + '/camera.glb');
 //  LoadScene(Data_Path + '/refplane31.glb');
 //  LoadScene(Data_Path + '/refplane31-up.glb');
@@ -296,7 +294,7 @@ begin
 //  LoadScene(Data_Path + '/CrazyRabbit.glb');
 //  LoadScene(Data_Path + '/coyote/scene.gltf');
 //  LoadScene(Data_Path + '/boy_character.glb');
-//  LoadScene(Pack_Path + '/wall_gate.glb');
+  LoadScene(Pack_Path + '/wall_gate.glb');
   Resize;
 end;
 
@@ -382,9 +380,7 @@ end;
 procedure TCastleApp.Start;
 begin
   inherited;
-{$ifdef USE_STEAM}
- SteamCheck;
-{$endif}
+  SteamCheck;
   LogTextureCache := True;
   ActiveScene := nil;
   LoadViewport;
